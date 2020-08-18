@@ -1,6 +1,7 @@
+import datetime
+
 import requests
 from bs4 import BeautifulSoup
-import datetime
 
 
 def get_story(story_id: int):
