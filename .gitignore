@@ -1,0 +1,5 @@
+.idea/
+dist/
+hackernews_api.egg-info/
+notebooks/
+*.pyc
