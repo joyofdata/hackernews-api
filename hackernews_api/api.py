@@ -1,22 +1,20 @@
 import datetime
 import re
-from dataclasses import dataclass
 from datetime import timezone
 from typing import List
 
 import requests
 from bs4 import BeautifulSoup
+from pydantic import BaseModel
 
 
-@dataclass(frozen=True)
-class Comment:
+class Comment(BaseModel):
     item_id: int
     commenter: str
-    comment: str
+    comment: str = None
 
 
-@dataclass(frozen=True)
-class Story:
+class Story(BaseModel):
     submitter: str
     score: int
     n_comments: int
