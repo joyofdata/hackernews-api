@@ -8,14 +8,14 @@ import requests
 from bs4 import BeautifulSoup
 
 
-@dataclass
+@dataclass(frozen=True)
 class Comment:
     item_id: int
     commenter: str
     comment: str
 
 
-@dataclass
+@dataclass(frozen=True)
 class Story:
     submitter: str
     score: int
