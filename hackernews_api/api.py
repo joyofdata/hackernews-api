@@ -1,7 +1,8 @@
 import datetime
+import html
 import re
 from datetime import timezone
-from typing import List
+from typing import List, Optional, Union
 
 import requests
 from bs4 import BeautifulSoup
@@ -15,12 +16,15 @@ class Comment(BaseModel):
 
 
 class Story(BaseModel):
-    submitter: str
-    score: int
-    n_comments: int
+    item_id: int
+    submitter: Optional[str]
+    score: Optional[int]
+    n_comments: Optional[int]
     title: str
     url: str
-    submitted_at: datetime.datetime = None
+    on_hn: bool = None
+    text: str = None
+    submitted_at: Union[datetime.datetime, datetime.date]
     is_dupe: bool = False
     is_flagged: bool = False
     comments: List[Comment] = None
@@ -37,9 +41,18 @@ def get_story(story_id: int) -> Story:
     score = api_res["score"]
     submitted_at = datetime.datetime.fromtimestamp(api_res["time"], timezone.utc)
     title = api_res["title"]
-    url = api_res["url"]
+
+    text = None
+    if "text" in api_res:
+        text = html.unescape(api_res["text"])
 
     soup = BeautifulSoup(site_res, features="html.parser")
+
+    url = soup.select("a.storylink")[0]["href"]
+    on_hn = False
+    if url.startswith("item?id="):
+        url = "https://news.ycombinator.com/" + url
+        on_hn = True
 
     def is_tagged_with(tag):
         return any(
@@ -67,11 +80,14 @@ def get_story(story_id: int) -> Story:
         )
 
     story = Story(
+        item_id=story_id,
         submitter=submitter,
         score=score,
         n_comments=len(comments),
         title=title,
         url=url,
+        on_hn=on_hn,
+        text=text,
         submitted_at=submitted_at,
         is_dupe=is_dupe,
         is_flagged=is_flagged,
@@ -81,12 +97,13 @@ def get_story(story_id: int) -> Story:
     return story
 
 
-def get_main_stories_by_day(date: str):
+def get_main_stories_by_day(date: datetime.date) -> List[Story]:
     stories = []
     details = []
     p = 1
     while True:
-        res = requests.get(f"https://news.ycombinator.com/front?day={date}&p={p}")
+        date_str = date.strftime("%Y-%m-%d")
+        res = requests.get(f"https://news.ycombinator.com/front?day={date_str}&p={p}")
         p += 1
         soup = BeautifulSoup(res.content, features="html.parser")
         stories += soup.select("tr.athing")
@@ -104,11 +121,7 @@ def get_main_stories_by_day(date: str):
 
     story_urls = [story.select("a.storylink")[0]["href"] for story in stories]
 
-    regex = re.compile(
-        r"(\d+) points by ([\w-]+) \d+ \w+ ago .+ (\d+)? (comment|comments|discuss)".replace(
-            " ", r"\W+"
-        )
-    )
+    regex = re.compile(r"(\d+) points by ([\w-]+) \d+ \w+ ago[^0-9]+(\d+)?.+".replace(" ", r"\W+"))
     story_etcs = [regex.match(detail.text.strip()).groups() for detail in details]
 
     stories_zipped = zip(story_ids, story_titles, story_urls, story_etcs, story_tags,)
@@ -125,16 +138,19 @@ def get_main_stories_by_day(date: str):
             on_hn = True
 
         stories.append(
-            {
-                "id": int(story[0]),
-                "title": story[1],
-                "url": url,
-                "points": int(story[3][0]),
-                "submitter": story[3][1],
-                "comments": comments,
-                "tag": story[4],
-                "onHN": on_hn,
-            }
+            Story(
+                item_id=int(story[0]),
+                title=story[1],
+                url=url,
+                on_hn=on_hn,
+                text=None,
+                submitted_at=date,
+                score=int(story[3][0]),
+                submitter=story[3][1],
+                n_comments=comments,
+                is_dupe=(story[4] == "[dupe]"),
+                is_flagged=(story[4] == "[flagged]"),
+            )
         )
 
     return stories
