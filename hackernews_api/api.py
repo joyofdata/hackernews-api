@@ -1,26 +1,45 @@
 import datetime
 import re
+from dataclasses import dataclass
+from datetime import timezone
+from typing import List
 
 import requests
 from bs4 import BeautifulSoup
 
 
-def get_story(story_id: int):
-    data = {}
+@dataclass
+class Comment:
+    item_id: int
+    commenter: str
+    comment: str
 
+
+@dataclass
+class Story:
+    submitter: str
+    score: int
+    n_comments: int
+    title: str
+    url: str
+    submitted_at: datetime.datetime = None
+    is_dupe: bool = False
+    is_flagged: bool = False
+    comments: List[Comment] = None
+
+
+def get_story(story_id: int) -> Story:
     req = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json")
     api_res = req.json()
 
     req = requests.get(f"https://news.ycombinator.com/item?id={story_id}")
     site_res = req.content
 
-    data["submitter"] = api_res["by"]
-    data["score"] = api_res["score"]
-    data["submitted_at_utc"] = datetime.datetime.utcfromtimestamp(api_res["time"]).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-    data["title"] = api_res["title"]
-    data["url"] = api_res["url"]
+    submitter = api_res["by"]
+    score = api_res["score"]
+    submitted_at = datetime.datetime.fromtimestamp(api_res["time"], timezone.utc)
+    title = api_res["title"]
+    url = api_res["url"]
 
     soup = BeautifulSoup(site_res, features="html.parser")
 
@@ -33,23 +52,35 @@ def get_story(story_id: int):
             ]
         )
 
-    data["is_dupe"] = is_tagged_with("[dupe]")
-    data["is_flagged"] = is_tagged_with("[flagged]")
+    is_dupe = is_tagged_with("[dupe]")
+    is_flagged = is_tagged_with("[flagged]")
 
-    data["comments"] = []
+    comments = []
 
-    comments = soup.select("tr.athing.comtr")
-    for comment in comments:
+    comments_dom = soup.select("tr.athing.comtr")
+    for comment in comments_dom:
         span_commtext = comment.select("span.commtext")
-        data["comments"].append(
-            {
-                "item_id": comment["id"],
-                "commenter": comment.select("a.hnuser")[0].text,
-                "comment": None if len(span_commtext) == 0 else span_commtext[0].text,
-            }
+        comments.append(
+            Comment(
+                item_id=comment["id"],
+                commenter=comment.select("a.hnuser")[0].text,
+                comment=None if len(span_commtext) == 0 else span_commtext[0].text,
+            )
         )
 
-    return data
+    story = Story(
+        submitter=submitter,
+        score=score,
+        n_comments=len(comments),
+        title=title,
+        url=url,
+        submitted_at=submitted_at,
+        is_dupe=is_dupe,
+        is_flagged=is_flagged,
+        comments=comments,
+    )
+
+    return story
 
 
 def get_main_stories_by_day(date: str):
@@ -58,10 +89,8 @@ def get_main_stories_by_day(date: str):
     p = 1
     while True:
         res = requests.get(f"https://news.ycombinator.com/front?day={date}&p={p}")
-        soup = BeautifulSoup(res.content, features="html.parser")
-
         p += 1
-        soup = BeautifulSoup(res.content)
+        soup = BeautifulSoup(res.content, features="html.parser")
         stories += soup.select("tr.athing")
         details += soup.select("td.subtext")
 
