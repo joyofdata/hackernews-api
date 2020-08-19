@@ -16,14 +16,22 @@ def get_story(story_id: int):
 
     data["submitter"] = api_res["by"]
     data["score"] = api_res["score"]
-    data["submitted_at_utc"] = datetime.datetime.utcfromtimestamp(api_res["time"]).strftime("%Y-%m-%d %H:%M:%S")
+    data["submitted_at_utc"] = datetime.datetime.utcfromtimestamp(api_res["time"]).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
     data["title"] = api_res["title"]
     data["url"] = api_res["url"]
 
     soup = BeautifulSoup(site_res, features="html.parser")
 
     def is_tagged_with(tag):
-        return any([tag in t.find(text=True) for t in soup.select("td.title") if t.find(text=True) is not None])
+        return any(
+            [
+                tag in t.find(text=True)
+                for t in soup.select("td.title")
+                if t.find(text=True) is not None
+            ]
+        )
 
     data["is_dupe"] = is_tagged_with("[dupe]")
     data["is_flagged"] = is_tagged_with("[flagged]")
@@ -70,7 +78,9 @@ def get_main_stories_by_day(date: str):
     story_urls = [story.select("a.storylink")[0]["href"] for story in stories]
 
     regex = re.compile(
-        r"(\d+) points by ([\w-]+) \d+ \w+ ago .+ (\d+)? (comment|comments|discuss)".replace(" ", r"\W+")
+        r"(\d+) points by ([\w-]+) \d+ \w+ ago .+ (\d+)? (comment|comments|discuss)".replace(
+            " ", r"\W+"
+        )
     )
     story_etcs = [regex.match(detail.text.strip()).groups() for detail in details]
 
