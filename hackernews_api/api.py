@@ -101,16 +101,17 @@ def get_main_stories_by_day(date: datetime.date) -> List[Story]:
     stories = []
     details = []
     p = 1
-    while True:
-        date_str = date.strftime("%Y-%m-%d")
-        res = requests.get(f"https://news.ycombinator.com/front?day={date_str}&p={p}")
-        p += 1
-        soup = BeautifulSoup(res.content, features="html.parser")
-        stories += soup.select("tr.athing")
-        details += soup.select("td.subtext")
+    with requests.Session() as session:
+        while True:
+            date_str = date.strftime("%Y-%m-%d")
+            res = session.get(f"https://news.ycombinator.com/front?day={date_str}&p={p}")
+            p += 1
+            soup = BeautifulSoup(res.content, features="html.parser")
+            stories += soup.select("tr.athing")
+            details += soup.select("td.subtext")
 
-        if len(soup.select("a.morelink")) == 0:
-            break
+            if len(soup.select("a.morelink")) == 0:
+                break
 
     regex = re.compile(r"\d+\. +(\[dupe\]|\[flagged\])?.+")
     story_tags = [regex.match(story.text.strip()).group(1) for story in stories]
