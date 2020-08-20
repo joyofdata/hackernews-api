@@ -12,3 +12,12 @@ repos:
     rev: master
     hooks:
     - id: flake8
+-   repo: local
+    hooks:
+    - id: run-tests
+      name: run tests
+      entry: pytest tests
+      language: python
+      additional_dependencies: [pre-commit, pytest, requests-mock, bs4, pydantic]
+      always_run: true
+      pass_filenames: false

@@ -10,6 +10,7 @@ beautifulsoup4 = "^4.9.1"
 click = "^7.1.2"
 pydantic = "^1.6.1"
 requests = "^2.24.0"
+requests-mock = "^1.8.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
