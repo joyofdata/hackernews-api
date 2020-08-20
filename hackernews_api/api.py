@@ -2,7 +2,7 @@ import datetime
 import html
 import re
 from datetime import timezone
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import requests
 from bs4 import BeautifulSoup
@@ -12,7 +12,7 @@ from pydantic import BaseModel
 class Comment(BaseModel):
     item_id: int
     commenter: str
-    comment: str = None
+    comment: Optional[str] = None
 
 
 class Story(BaseModel):
@@ -22,12 +22,12 @@ class Story(BaseModel):
     n_comments: Optional[int]
     title: str
     url: str
-    on_hn: bool = None
-    text: str = None
+    on_hn: Optional[bool] = None
+    text: Optional[str] = None
     submitted_at: Union[datetime.datetime, datetime.date]
-    is_dupe: bool = False
-    is_flagged: bool = False
-    comments: List[Comment] = None
+    is_dupe: Optional[bool] = False
+    is_flagged: Optional[bool] = False
+    comments: Optional[List[Comment]] = None
 
 
 def get_story(story_id: int) -> Story:
@@ -114,7 +114,13 @@ def get_main_stories_by_day(date: datetime.date) -> List[Story]:
                 break
 
     regex = re.compile(r"\d+\. +(\[dupe\]|\[flagged\])?.+")
-    story_tags = [regex.match(story.text.strip()).group(1) for story in stories]
+    story_tags: List[Optional[str]] = []
+    for story in stories:
+        m = regex.match(story.text.strip())
+        if m is None:
+            story_tags.append(None)
+        else:
+            story_tags.append(m.group(1))
 
     story_ids = [story["id"] for story in stories]
 
@@ -123,7 +129,13 @@ def get_main_stories_by_day(date: datetime.date) -> List[Story]:
     story_urls = [story.select("a.storylink")[0]["href"] for story in stories]
 
     regex = re.compile(r"(\d+) points by ([\w-]+) \d+ \w+ ago[^0-9]+(\d+)?.+".replace(" ", r"\W+"))
-    story_etcs = [regex.match(detail.text.strip()).groups() for detail in details]
+    story_etcs: List[Tuple[Optional[str], ...]] = []
+    for detail in details:
+        m = regex.match(detail.text.strip())
+        if m is None:
+            story_etcs.append((None, None, None))
+        else:
+            story_etcs.append(tuple(m.groups()))
 
     stories_zipped = zip(story_ids, story_titles, story_urls, story_etcs, story_tags,)
 
